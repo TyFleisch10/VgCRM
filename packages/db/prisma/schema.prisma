@@ -1,0 +1,1030 @@
+// WaterSys CRM — Complete Prisma Schema
+// Database: PostgreSQL (Supabase)
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pg_trgm, unaccent]
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  OWNER
+  OFFICE_MANAGER
+  RECEPTIONIST
+  INSTALLER
+  SERVICE_TECH
+}
+
+enum CustomerType {
+  RESIDENTIAL
+  COMMERCIAL
+  MUNICIPAL
+}
+
+enum LeadSource {
+  REFERRAL
+  OWNER_NETWORK
+  COLD_CALL
+  WEBSITE
+  SOCIAL_MEDIA
+  REPEAT_CUSTOMER
+  OTHER
+}
+
+enum LeadStage {
+  NEW
+  CONTACTED
+  WATER_TEST
+  ESTIMATE_SENT
+  ESTIMATE_ACCEPTED
+  SCHEDULED
+  INSTALLED
+  BILLED
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum EstimateStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum EstimateOptionType {
+  BEST
+  COST_EFFECTIVE
+}
+
+enum JobType {
+  INSTALLATION
+  MUNICIPAL_PROJECT
+  SERVICE_CALL
+  MAINTENANCE
+}
+
+enum JobStatus {
+  PENDING
+  SCHEDULED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETE
+  INVOICED
+  CANCELLED
+}
+
+enum TicketType {
+  MAINTENANCE
+  REPAIR
+  EMERGENCY
+  WARRANTY
+  INSPECTION
+  CHEMICAL_FILL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_PARTS
+  RESOLVED
+  CLOSED
+}
+
+enum InventoryLocationType {
+  STORAGE_UNIT
+  GARAGE
+  TRUCK
+  TRAILER
+  OFFICE
+}
+
+enum InvoiceType {
+  INSTALL
+  SERVICE
+  PROGRESS
+  FINAL
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  VOID
+}
+
+enum QboSyncStatus {
+  NOT_SYNCED
+  PENDING
+  SYNCED
+  ERROR
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum InteractionType {
+  CALL
+  EMAIL
+  SMS
+  VISIT
+  WATER_TEST
+  ESTIMATE
+  NOTE
+  STATUS_CHANGE
+  PHOTO
+}
+
+enum WaterSource {
+  WELL
+  MUNICIPAL
+  SURFACE
+  OTHER
+}
+
+enum SystemApplication {
+  SOFTENING
+  FILTRATION
+  CHEMICAL_INJECTION
+  DISINFECTION
+  REVERSE_OSMOSIS
+  IRON_REMOVAL
+  ARSENIC_REMOVAL
+  OTHER
+}
+
+enum CloseReason {
+  WON
+  LOST
+  DUPLICATE
+  NO_RESPONSE
+  NOT_QUALIFIED
+}
+
+enum TransferDirection {
+  IN
+  OUT
+  TRANSFER
+}
+
+enum NotificationChannel {
+  SMS
+  EMAIL
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+  QUEUED
+}
+
+// ─────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────
+
+model User {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  name       String
+  role       UserRole
+  phone      String?
+  avatarUrl  String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  createdCustomers    Customer[]        @relation("CreatedBy")
+  assignedLeads       Lead[]            @relation("AssignedTo")
+  createdLeads        Lead[]            @relation("CreatedBy")
+  interactions        Interaction[]
+  assignedJobs        JobAssignment[]
+  createdJobs         Job[]             @relation("JobCreatedBy")
+  assignedTickets     ServiceTicket[]   @relation("AssignedTo")
+  createdTickets      ServiceTicket[]   @relation("CreatedBy")
+  waterTests          WaterTest[]
+  partUsage           PartUsage[]
+  inventoryTransfers  InventoryTransfer[]
+  createdEstimates    Estimate[]        @relation("EstimateCreatedBy")
+  createdInvoices     Invoice[]         @relation("InvoiceCreatedBy")
+  tasks               Task[]            @relation("TaskAssignee")
+  createdTasks        Task[]            @relation("TaskCreatedBy")
+  auditLogs           AuditLog[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// CUSTOMERS & SITES
+// ─────────────────────────────────────────────
+
+model Customer {
+  id               String       @id @default(uuid())
+  type             CustomerType @default(RESIDENTIAL)
+  firstName        String?
+  lastName         String?
+  company          String?
+  email            String?
+  phonePrimary     String?
+  phoneSecondary   String?
+  address          String?
+  city             String?
+  state            String?
+  zip              String?
+  billingAddress   String?
+  billingCity      String?
+  billingState     String?
+  billingZip       String?
+  referralSource   LeadSource?
+  referralContact  Customer?    @relation("Referrals", fields: [referralContactId], references: [id])
+  referralContactId String?
+  referrals        Customer[]   @relation("Referrals")
+  notes            String?
+  tags             String[]
+  qboCustomerId    String?
+  isActive         Boolean      @default(true)
+  createdBy        User?        @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById      String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  // Relations
+  sites            Site[]
+  leads            Lead[]
+  estimates        Estimate[]
+  jobs             Job[]
+  tickets          ServiceTicket[]
+  invoices         Invoice[]
+  interactions     Interaction[]
+  tasks            Task[]
+  maintenancePlans MaintenancePlan[]
+  documents        Document[]
+
+  // Full-text search index (created via raw SQL migration)
+  @@index([email])
+  @@index([phonePrimary])
+  @@index([lastName])
+  @@map("customers")
+}
+
+model Site {
+  id              String      @id @default(uuid())
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  customerId      String
+  name            String?     // label e.g. "Main Residence", "Shop"
+  address         String
+  city            String
+  state           String
+  zip             String
+  lat             Decimal?    @db.Decimal(10, 8)
+  lng             Decimal?    @db.Decimal(11, 8)
+  waterSource     WaterSource @default(WELL)
+  waterSourceNotes String?
+  applicationType String?
+  siteNotes       String?
+  accessNotes     String?
+  gateCode        String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  systems         System[]
+  leads           Lead[]
+  estimates       Estimate[]
+  jobs            Job[]
+  tickets         ServiceTicket[]
+  waterTests      WaterTest[]
+  maintenancePlans MaintenancePlan[]
+  documents       Document[]
+
+  @@index([customerId])
+  @@map("sites")
+}
+
+// ─────────────────────────────────────────────
+// INSTALLED SYSTEMS
+// ─────────────────────────────────────────────
+
+model System {
+  id                     String            @id @default(uuid())
+  site                   Site              @relation(fields: [siteId], references: [id])
+  siteId                 String
+  customerId             String
+  status                 String            @default("ACTIVE") // ACTIVE | REMOVED | WARRANTY_CLAIM
+  application            SystemApplication
+  systemType             String?           // e.g. "Twin-tank softener", "Carbon backwash"
+  brand                  String?           // e.g. "Kinetico"
+  model                  String?
+  serialNumber           String?
+  filterSize             String?
+  filterType             String?
+  mediaType              String?
+  injectionPumpModel     String?
+  injectionPumpSerial    String?
+  injectionPumpSettings  Json?
+  chemicalType           String?
+  chemicalConcentration  String?
+  installDate            DateTime?
+  installedById          String?
+  warrantyStart          DateTime?
+  warrantyEnd            DateTime?
+  warrantyTerms          String?
+  warrantyClaimStatus    String?
+  warrantyNotes          String?
+  dropboxManualPath      String?
+  notes                  String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  // Relations
+  waterTests      WaterTest[]
+  tickets         ServiceTicket[]
+  maintenancePlans MaintenancePlan[]
+  documents       Document[]
+  photos          SystemPhoto[]
+
+  @@index([siteId])
+  @@index([customerId])
+  @@map("systems")
+}
+
+model SystemPhoto {
+  id        String   @id @default(uuid())
+  system    System   @relation(fields: [systemId], references: [id])
+  systemId  String
+  url       String   // Supabase storage URL
+  caption   String?
+  createdAt DateTime @default(now())
+
+  @@map("system_photos")
+}
+
+// ─────────────────────────────────────────────
+// WATER TESTS
+// ─────────────────────────────────────────────
+
+model WaterTest {
+  id          String   @id @default(uuid())
+  site        Site     @relation(fields: [siteId], references: [id])
+  siteId      String
+  system      System?  @relation(fields: [systemId], references: [id])
+  systemId    String?
+  jobId       String?
+  ticketId    String?
+  testedBy    User     @relation(fields: [testedById], references: [id])
+  testedById  String
+  testDate    DateTime
+  notes       String?
+  // Structured results stored as JSON:
+  // { ph, hardness_gpg, tds_ppm, iron_ppm, manganese_ppm, chlorine_ppm,
+  //   nitrates_ppm, bacteria, arsenic_ppb, custom: [{name, value, unit}] }
+  results     Json
+  labName     String?
+  recommendations String?
+  attachments Json     @default("[]") // [{name, url, type: 'storage'|'dropbox'}]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  job     Job?          @relation(fields: [jobId], references: [id])
+  ticket  ServiceTicket? @relation(fields: [ticketId], references: [id])
+
+  @@index([siteId])
+  @@map("water_tests")
+}
+
+// ─────────────────────────────────────────────
+// LEADS & PIPELINE
+// ─────────────────────────────────────────────
+
+model Lead {
+  id               String      @id @default(uuid())
+  customer         Customer    @relation(fields: [customerId], references: [id])
+  customerId       String
+  site             Site?       @relation(fields: [siteId], references: [id])
+  siteId           String?
+  stage            LeadStage   @default(NEW)
+  source           LeadSource  @default(OTHER)
+  referralContact  Customer?   @relation("LeadReferral", fields: [referralContactId], references: [id])
+  referralContactId String?
+  assignedTo       User?       @relation("AssignedTo", fields: [assignedToId], references: [id])
+  assignedToId     String?
+  createdBy        User        @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById      String
+  priority         Priority    @default(NORMAL)
+  notes            String?
+  estimatedValue   Decimal?    @db.Decimal(10, 2)
+  stageUpdatedAt   DateTime    @default(now())
+  closedAt         DateTime?
+  closeReason      CloseReason?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  // Relations
+  estimates        Estimate[]
+  jobs             Job[]
+  interactions     Interaction[]
+  tasks            Task[]
+
+  @@index([customerId])
+  @@index([stage])
+  @@index([assignedToId])
+  @@map("leads")
+}
+
+// ─────────────────────────────────────────────
+// INTERACTIONS (unified timeline)
+// ─────────────────────────────────────────────
+
+model Interaction {
+  id          String          @id @default(uuid())
+  customer    Customer        @relation(fields: [customerId], references: [id])
+  customerId  String
+  lead        Lead?           @relation(fields: [leadId], references: [id])
+  leadId      String?
+  job         Job?            @relation(fields: [jobId], references: [id])
+  jobId       String?
+  ticket      ServiceTicket?  @relation(fields: [ticketId], references: [id])
+  ticketId    String?
+  type        InteractionType
+  summary     String
+  notes       String?
+  user        User            @relation(fields: [userId], references: [id])
+  userId      String
+  metadata    Json?           // e.g. { stage_from, stage_to, estimate_id }
+  createdAt   DateTime        @default(now())
+
+  @@index([customerId])
+  @@index([leadId])
+  @@index([jobId])
+  @@map("interactions")
+}
+
+// ─────────────────────────────────────────────
+// ESTIMATES
+// ─────────────────────────────────────────────
+
+model Estimate {
+  id                    String         @id @default(uuid())
+  lead                  Lead?          @relation(fields: [leadId], references: [id])
+  leadId                String?
+  customer              Customer       @relation(fields: [customerId], references: [id])
+  customerId            String
+  site                  Site?          @relation(fields: [siteId], references: [id])
+  siteId                String?
+  createdBy             User           @relation("EstimateCreatedBy", fields: [createdById], references: [id])
+  createdById           String
+  status                EstimateStatus @default(DRAFT)
+  portalToken           String         @unique @default(uuid())
+  notesToCustomer       String?
+  internalNotes         String?
+  validityDays          Int            @default(30)
+  sentAt                DateTime?
+  expiresAt             DateTime?
+  acceptedAt            DateTime?
+  acceptedOptionType    EstimateOptionType?
+  dropboxSignRequestId  String?
+  signatureIp           String?
+  signatureDevice       String?        // user-agent
+  signatureTimestamp    DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  // Relations
+  options   EstimateOption[]
+  jobs      Job[]
+
+  @@index([customerId])
+  @@index([portalToken])
+  @@map("estimates")
+}
+
+model EstimateOption {
+  id              String             @id @default(uuid())
+  estimate        Estimate           @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  estimateId      String
+  optionType      EstimateOptionType
+  title           String
+  scope           String?            // @db.Text
+  assumptions     String?
+  laborDescription String?
+  laborHours      Decimal?           @db.Decimal(8, 2)
+  laborRate       Decimal?           @db.Decimal(8, 2)
+  flatRateAmount  Decimal?           @db.Decimal(10, 2)
+  isFlatRate      Boolean            @default(true)
+  subtotal        Decimal            @db.Decimal(10, 2) @default(0)
+  taxRate         Decimal            @db.Decimal(5, 4)  @default(0)
+  taxAmount       Decimal            @db.Decimal(10, 2) @default(0)
+  total           Decimal            @db.Decimal(10, 2) @default(0)
+  notes           String?
+  sortOrder       Int                @default(0)
+
+  lineItems EstimateLineItem[]
+
+  @@map("estimate_options")
+}
+
+model EstimateLineItem {
+  id                String          @id @default(uuid())
+  option            EstimateOption  @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  optionId          String
+  itemType          String          // part | labor | flat_rate | addon | other
+  inventoryItem     InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
+  inventoryItemId   String?
+  description       String
+  quantity          Decimal         @db.Decimal(10, 3) @default(1)
+  unitCost          Decimal         @db.Decimal(10, 2) @default(0)
+  unitPrice         Decimal         @db.Decimal(10, 2) @default(0)
+  margin            Decimal?        @db.Decimal(5, 4)
+  total             Decimal         @db.Decimal(10, 2) @default(0)
+  packageName       String?
+  isInFlatRate      Boolean         @default(false)
+  sortOrder         Int             @default(0)
+
+  @@map("estimate_line_items")
+}
+
+model EstimateTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  type        String   // installation | service | municipal | maintenance
+  // lineItemTemplates: [{description, itemType, quantity, unitCost, unitPrice, packageName}]
+  lineItemTemplates Json @default("[]")
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  @@map("estimate_templates")
+}
+
+// ─────────────────────────────────────────────
+// JOBS
+// ─────────────────────────────────────────────
+
+model Job {
+  id                  String    @id @default(uuid())
+  lead                Lead?     @relation(fields: [leadId], references: [id])
+  leadId              String?
+  estimate            Estimate? @relation(fields: [estimateId], references: [id])
+  estimateId          String?
+  customer            Customer  @relation(fields: [customerId], references: [id])
+  customerId          String
+  site                Site?     @relation(fields: [siteId], references: [id])
+  siteId              String?
+  type                JobType   @default(INSTALLATION)
+  status              JobStatus @default(PENDING)
+  priority            Priority  @default(NORMAL)
+  description         String?
+  checklistTemplateId String?
+  scheduledStart      DateTime?
+  scheduledEnd        DateTime?
+  actualStart         DateTime?
+  actualEnd           DateTime?
+  completionNotes     String?
+  googleCalendarEventId String?
+  createdBy           User      @relation("JobCreatedBy", fields: [createdById], references: [id])
+  createdById         String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  assignments   JobAssignment[]
+  milestones    JobMilestone[]
+  interactions  Interaction[]
+  waterTests    WaterTest[]
+  partUsage     PartUsage[]
+  invoices      Invoice[]
+  tickets       ServiceTicket[]
+  checklists    JobChecklist[]
+  documents     Document[]
+  tasks         Task[]
+
+  @@index([customerId])
+  @@index([status])
+  @@map("jobs")
+}
+
+model JobAssignment {
+  id     String @id @default(uuid())
+  job    Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId  String
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+  role   String @default("TECH") // LEAD_TECH | TECH | APPRENTICE
+
+  @@unique([jobId, userId])
+  @@map("job_assignments")
+}
+
+model JobMilestone {
+  id            String    @id @default(uuid())
+  job           Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId         String
+  name          String
+  description   String?
+  dueDate       DateTime?
+  completedAt   DateTime?
+  billingAmount Decimal?  @db.Decimal(10, 2)
+  invoiceId     String?
+  notes         String?
+  sortOrder     Int       @default(0)
+
+  invoice Invoice? @relation(fields: [invoiceId], references: [id])
+
+  @@map("job_milestones")
+}
+
+model JobChecklist {
+  id          String   @id @default(uuid())
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId       String
+  templateId  String?
+  title       String
+  // items: [{id, title, description, required, completed, completedAt, completedById, notes}]
+  items       Json     @default("[]")
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("job_checklists")
+}
+
+// ─────────────────────────────────────────────
+// SERVICE TICKETS
+// ─────────────────────────────────────────────
+
+model ServiceTicket {
+  id           String       @id @default(uuid())
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  customerId   String
+  site         Site?        @relation(fields: [siteId], references: [id])
+  siteId       String?
+  system       System?      @relation(fields: [systemId], references: [id])
+  systemId     String?
+  job          Job?         @relation(fields: [jobId], references: [id])
+  jobId        String?
+  createdBy    User         @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById  String
+  assignedTo   User?        @relation("AssignedTo", fields: [assignedToId], references: [id])
+  assignedToId String?
+  type         TicketType   @default(REPAIR)
+  priority     Priority     @default(NORMAL)
+  status       TicketStatus @default(OPEN)
+  title        String
+  description  String?
+  resolution   String?
+  internalNotes String?
+  scheduledAt  DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  waterTests   WaterTest[]
+  partUsage    PartUsage[]
+  invoices     Invoice[]
+  interactions Interaction[]
+  photos       TicketPhoto[]
+  documents    Document[]
+  tasks        Task[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([assignedToId])
+  @@map("service_tickets")
+}
+
+model TicketPhoto {
+  id        String        @id @default(uuid())
+  ticket    ServiceTicket @relation(fields: [ticketId], references: [id])
+  ticketId  String
+  url       String
+  caption   String?
+  createdAt DateTime      @default(now())
+
+  @@map("ticket_photos")
+}
+
+// ─────────────────────────────────────────────
+// INVENTORY
+// ─────────────────────────────────────────────
+
+model InventoryLocation {
+  id          String                @id @default(uuid())
+  name        String
+  type        InventoryLocationType
+  description String?
+  isActive    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+
+  stock          InventoryStock[]
+  transfersFrom  InventoryTransfer[] @relation("TransferFrom")
+  transfersTo    InventoryTransfer[] @relation("TransferTo")
+  partUsage      PartUsage[]
+
+  @@map("inventory_locations")
+}
+
+model InventoryItem {
+  id            String   @id @default(uuid())
+  sku           String?  @unique
+  partNumber    String?
+  name          String
+  description   String?
+  category      String?
+  brand         String?
+  unitOfMeasure String   @default("EA") // EA | LB | FT | GAL | BAG
+  unitCost      Decimal  @db.Decimal(10, 2) @default(0)
+  unitPrice     Decimal  @db.Decimal(10, 2) @default(0)
+  reorderPoint  Decimal? @db.Decimal(10, 2)
+  qboItemId     String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  stock           InventoryStock[]
+  transfers       InventoryTransfer[]
+  partUsage       PartUsage[]
+  estimateLines   EstimateLineItem[]
+
+  @@index([name])
+  @@map("inventory_items")
+}
+
+model InventoryStock {
+  id           String            @id @default(uuid())
+  item         InventoryItem     @relation(fields: [itemId], references: [id])
+  itemId       String
+  location     InventoryLocation @relation(fields: [locationId], references: [id])
+  locationId   String
+  quantity     Decimal           @db.Decimal(10, 3) @default(0)
+  minQuantity  Decimal?          @db.Decimal(10, 3)
+  lastUpdated  DateTime          @default(now())
+  lastCounted  DateTime?
+
+  @@unique([itemId, locationId])
+  @@map("inventory_stock")
+}
+
+model InventoryTransfer {
+  id             String            @id @default(uuid())
+  item           InventoryItem     @relation(fields: [itemId], references: [id])
+  itemId         String
+  fromLocation   InventoryLocation? @relation("TransferFrom", fields: [fromLocationId], references: [id])
+  fromLocationId String?
+  toLocation     InventoryLocation? @relation("TransferTo", fields: [toLocationId], references: [id])
+  toLocationId   String?
+  quantity       Decimal           @db.Decimal(10, 3)
+  transferredBy  User              @relation(fields: [transferredById], references: [id])
+  transferredById String
+  notes          String?
+  createdAt      DateTime          @default(now())
+
+  @@map("inventory_transfers")
+}
+
+model PartUsage {
+  id           String             @id @default(uuid())
+  item         InventoryItem      @relation(fields: [itemId], references: [id])
+  itemId       String
+  location     InventoryLocation? @relation(fields: [locationId], references: [id])
+  locationId   String?
+  job          Job?               @relation(fields: [jobId], references: [id])
+  jobId        String?
+  ticket       ServiceTicket?     @relation(fields: [ticketId], references: [id])
+  ticketId     String?
+  quantity     Decimal            @db.Decimal(10, 3)
+  unitCost     Decimal            @db.Decimal(10, 2) @default(0)
+  usedBy       User               @relation(fields: [usedById], references: [id])
+  usedById     String
+  notes        String?
+  createdAt    DateTime           @default(now())
+
+  @@map("part_usage")
+}
+
+// ─────────────────────────────────────────────
+// INVOICES
+// ─────────────────────────────────────────────
+
+model Invoice {
+  id             String        @id @default(uuid())
+  job            Job?          @relation(fields: [jobId], references: [id])
+  jobId          String?
+  ticket         ServiceTicket? @relation(fields: [ticketId], references: [id])
+  ticketId       String?
+  milestone      JobMilestone? @relation
+  customer       Customer      @relation(fields: [customerId], references: [id])
+  customerId     String
+  number         String        @unique
+  type           InvoiceType   @default(INSTALL)
+  status         InvoiceStatus @default(DRAFT)
+  // lineItems: [{description, quantity, unitPrice, total, itemId?}]
+  lineItems      Json          @default("[]")
+  subtotal       Decimal       @db.Decimal(10, 2) @default(0)
+  taxRate        Decimal       @db.Decimal(5, 4)  @default(0)
+  taxAmount      Decimal       @db.Decimal(10, 2) @default(0)
+  total          Decimal       @db.Decimal(10, 2) @default(0)
+  dueDate        DateTime?
+  paidAt         DateTime?
+  paymentMethod  String?
+  qboInvoiceId   String?
+  qboSyncStatus  QboSyncStatus @default(NOT_SYNCED)
+  qboSyncError   String?
+  qboSyncAt      DateTime?
+  notes          String?
+  createdBy      User          @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  createdById    String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@map("invoices")
+}
+
+// ─────────────────────────────────────────────
+// MAINTENANCE PLANS
+// ─────────────────────────────────────────────
+
+model MaintenancePlan {
+  id                 String   @id @default(uuid())
+  customer           Customer @relation(fields: [customerId], references: [id])
+  customerId         String
+  site               Site     @relation(fields: [siteId], references: [id])
+  siteId             String
+  system             System?  @relation(fields: [systemId], references: [id])
+  systemId           String?
+  intervalMonths     Int      @default(12)
+  lastServiceDate    DateTime?
+  nextServiceDate    DateTime?
+  isActive           Boolean  @default(true)
+  autoCreateTicket   Boolean  @default(true)
+  reminderDaysBefore Int      @default(14)
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("maintenance_plans")
+}
+
+// ─────────────────────────────────────────────
+// TASKS
+// ─────────────────────────────────────────────
+
+model Task {
+  id               String     @id @default(uuid())
+  title            String
+  description      String?
+  assignedTo       User?      @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  assignedToId     String?
+  createdBy        User       @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  createdById      String
+  dueDate          DateTime?
+  priority         Priority   @default(NORMAL)
+  status           TaskStatus @default(TODO)
+  tags             String[]
+  isRecurring      Boolean    @default(false)
+  recurrenceRule   String?    // iCal RRULE string
+  templateId       String?
+  linkedCustomer   Customer?  @relation(fields: [linkedCustomerId], references: [id])
+  linkedCustomerId String?
+  linkedLead       Lead?      @relation(fields: [linkedLeadId], references: [id])
+  linkedLeadId     String?
+  linkedJob        Job?       @relation(fields: [linkedJobId], references: [id])
+  linkedJobId      String?
+  linkedTicket     ServiceTicket? @relation(fields: [linkedTicketId], references: [id])
+  linkedTicketId   String?
+  completedAt      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@index([assignedToId])
+  @@index([status])
+  @@map("tasks")
+}
+
+model TaskTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  type        String   // install_checklist | diagnosis | municipal_closeout | custom
+  // items: [{id, title, description, required}]
+  items       Json     @default("[]")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("task_templates")
+}
+
+// ─────────────────────────────────────────────
+// DOCUMENTS (Dropbox-linked)
+// ─────────────────────────────────────────────
+
+model Document {
+  id              String    @id @default(uuid())
+  entityType      String    // customer | site | system | job | ticket
+  entityId        String
+  name            String
+  dropboxPath     String?
+  dropboxSharedLink String?
+  storageUrl      String?   // Supabase storage URL
+  fileType        String?   // pdf | jpg | png | doc | ...
+  sizeBytes       Int?
+  uploadedById    String
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  customer  Customer?      @relation(fields: [customerId], references: [id])
+  customerId String?
+  site      Site?          @relation(fields: [siteId], references: [id])
+  siteId    String?
+  system    System?        @relation(fields: [systemId], references: [id])
+  systemId  String?
+  job       Job?           @relation(fields: [jobId], references: [id])
+  jobId     String?
+  ticket    ServiceTicket? @relation(fields: [ticketId], references: [id])
+  ticketId  String?
+
+  @@index([entityType, entityId])
+  @@map("documents")
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  user       User?    @relation(fields: [userId], references: [id])
+  userId     String?
+  action     String   // CREATE | UPDATE | DELETE | STAGE_CHANGE | PERMISSION_CHANGE | LOGIN | ...
+  entityType String   // Customer | Lead | Estimate | Job | Invoice | Inventory | ...
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model NotificationLog {
+  id              String              @id @default(uuid())
+  channel         NotificationChannel
+  recipient       String              // phone or email
+  template        String
+  entityType      String?
+  entityId        String?
+  status          NotificationStatus  @default(QUEUED)
+  providerMsgId   String?
+  error           String?
+  sentAt          DateTime?
+  createdAt       DateTime            @default(now())
+
+  @@map("notification_log")
+}
+
+// ─────────────────────────────────────────────
+// INTEGRATION TOKENS (QBO, Google, Dropbox)
+// ─────────────────────────────────────────────
+
+model IntegrationToken {
+  id            String   @id @default(uuid())
+  service       String   // qbo | google | dropbox
+  accessToken   String
+  refreshToken  String?
+  expiresAt     DateTime?
+  scope         String?
+  metadata      Json?    // realmId for QBO, etc.
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([service])
+  @@map("integration_tokens")
+}
