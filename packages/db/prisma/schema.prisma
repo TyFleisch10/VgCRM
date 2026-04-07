@@ -277,6 +277,7 @@ model Customer {
   tasks            Task[]
   maintenancePlans MaintenancePlan[]
   documents        Document[]
+  referredLeads   Lead[]      @relation("LeadReferral")
 
   // Full-text search index (created via raw SQL migration)
   @@index([email])
@@ -643,7 +644,7 @@ model JobMilestone {
   dueDate       DateTime?
   completedAt   DateTime?
   billingAmount Decimal?  @db.Decimal(10, 2)
-  invoiceId     String?
+  invoiceId     String?   @unique
   notes         String?
   sortOrder     Int       @default(0)
 
