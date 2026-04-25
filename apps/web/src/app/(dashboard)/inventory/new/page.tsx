@@ -18,7 +18,7 @@ export default function NewInventoryItemPage() {
     const form = new FormData(e.currentTarget);
     createItem.mutate({
       name: form.get("name") as string,
-      sku: (form.get("sku") as string) || undefined,
+      sku: (form.get("sn") as string) || undefined,
       partNumber: (form.get("partNumber") as string) || undefined,
       description: (form.get("description") as string) || undefined,
       category: (form.get("category") as string) || undefined,
@@ -53,9 +53,9 @@ export default function NewInventoryItemPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
               <input
-                name="sku"
+                name="sn"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
@@ -74,7 +74,7 @@ export default function NewInventoryItemPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
               <input
                 name="category"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"

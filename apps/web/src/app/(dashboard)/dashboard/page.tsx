@@ -2,13 +2,11 @@
 
 import { trpc } from "@/lib/trpc/client";
 import { formatCurrency } from "@/lib/utils";
-import { PIPELINE_STAGES } from "@watersys/shared";
 
 export default function DashboardPage() {
   const { data: summary, isLoading } = trpc.dashboard.summary.useQuery();
   const { data: todayJobs } = trpc.jobs.todaySchedule.useQuery();
   const { data: lowStock } = trpc.inventory.lowStockAlerts.useQuery();
-  const { data: pipeline } = trpc.leads.pipelineSummary.useQuery();
 
   if (isLoading) {
     return (
@@ -56,71 +54,43 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Pipeline + Schedule row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Pipeline by stage */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="font-semibold text-gray-900 mb-4">Pipeline by Stage</h2>
-          <div className="space-y-2.5">
-            {pipeline?.map((stage) => {
-              const stageInfo = PIPELINE_STAGES.find((s) => s.key === stage.stage);
-              const maxValue = Math.max(...(pipeline?.map((s) => s.value) ?? [1]));
-              const pct = maxValue > 0 ? (stage.value / maxValue) * 100 : 0;
-              return (
-                <div key={stage.stage} className="flex items-center gap-3">
-                  <span className="text-sm text-gray-600 w-44 shrink-0">{stageInfo?.label}</span>
-                  <div className="flex-1 bg-gray-100 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${stageInfo?.color ?? "bg-blue-500"} transition-all`}
-                      style={{ width: `${pct}%` }}
-                    />
+      {/* Schedule */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <h2 className="font-semibold text-gray-900 mb-4">Today's Schedule</h2>
+        {!todayJobs?.length ? (
+          <p className="text-sm text-gray-400 text-center py-8">No jobs scheduled today</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {todayJobs.map((job) => (
+              <a
+                key={job.id}
+                href={`/jobs/${job.id}`}
+                className="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100 transition"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {job.customer.firstName} {job.customer.lastName || job.customer.company}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {job.site?.city}
+                      {" · "}
+                      {job.assignments.map((a) => a.user.name).join(", ")}
+                    </p>
                   </div>
-                  <span className="text-sm font-medium text-gray-700 w-8 text-right">{stage.count}</span>
-                  <span className="text-sm text-gray-500 w-24 text-right">{formatCurrency(stage.value)}</span>
+                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                    {job.scheduledStart
+                      ? new Date(job.scheduledStart).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })
+                      : "—"}
+                  </span>
                 </div>
-              );
-            })}
+              </a>
+            ))}
           </div>
-        </div>
-
-        {/* Today's schedule */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="font-semibold text-gray-900 mb-4">Today&apos;s Schedule</h2>
-          {!todayJobs?.length ? (
-            <p className="text-sm text-gray-400 text-center py-8">No jobs scheduled today</p>
-          ) : (
-            <div className="space-y-3">
-              {todayJobs.map((job) => (
-                <a
-                  key={job.id}
-                  href={`/jobs/${job.id}`}
-                  className="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100 transition"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {job.customer.firstName} {job.customer.lastName || job.customer.company}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {job.site?.city}
-                        {" · "}
-                        {job.assignments.map((a) => a.user.name).join(", ")}
-                      </p>
-                    </div>
-                    <span className="text-xs text-gray-400 whitespace-nowrap">
-                      {job.scheduledStart
-                        ? new Date(job.scheduledStart).toLocaleTimeString("en-US", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })
-                        : "—"}
-                    </span>
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Alerts */}

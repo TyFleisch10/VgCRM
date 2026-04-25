@@ -2,7 +2,7 @@
 const prisma = new PrismaClient();
 await prisma.user.create({
   data: {
-    id: '22aed16c-2ff7-46e8-9855-b02d701398b9',
+    id: '6239133f-f8db-484e-9f23-eff786856029',
     email: 'vanguardwatersystems@gmail.com',
     name: 'Admin',
     role: 'OWNER',
