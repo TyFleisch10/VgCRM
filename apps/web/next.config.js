@@ -17,6 +17,13 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ["@prisma/client", "prisma"],
   },
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      vertx: false,
+    };
+    return config;
+  },
 };
 
 module.exports = nextConfig;
