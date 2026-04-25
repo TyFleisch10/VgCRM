@@ -8,7 +8,7 @@
                     "start":  "next start",
                     "lint":  "next lint",
                     "typecheck":  "tsc --noEmit",
-                    "vercel-build":  "prisma generate --schema=../../packages/db/prisma/schema.prisma \u0026\u0026 next build"
+                    "vercel-build":  "pnpm exec prisma generate --schema=../../packages/db/prisma/schema.prisma \u0026\u0026 next build"
                 },
     "dependencies":  {
                          "@dnd-kit/core":  "^6.1.0",
