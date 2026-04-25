@@ -354,10 +354,10 @@ export default function NewEstimatePage() {
           </button>
           <button
             type="submit"
-            disabled={createEstimate.isLoading}
+            disabled={createEstimate.isPending}
             className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg disabled:opacity-50"
           >
-            {createEstimate.isLoading ? "Creating..." : "Create Estimate"}
+            {createEstimate.isPending ? "Creating..." : "Create Estimate"}
           </button>
         </div>
       </form>

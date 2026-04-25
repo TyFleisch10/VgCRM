@@ -216,10 +216,10 @@ export default function SettingsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={createUser.isLoading}
+                  disabled={createUser.isPending}
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg disabled:opacity-50"
                 >
-                  {createUser.isLoading ? "Creating..." : "Create User"}
+                  {createUser.isPending ? "Creating..." : "Create User"}
                 </button>
               </div>
             </form>

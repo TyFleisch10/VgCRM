@@ -231,10 +231,10 @@ function NewTaskModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
             </button>
             <button
               type="submit"
-              disabled={createTask.isLoading}
+              disabled={createTask.isPending}
               className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg disabled:opacity-50"
             >
-              {createTask.isLoading ? "Creating..." : "Create Task"}
+              {createTask.isPending ? "Creating..." : "Create Task"}
             </button>
           </div>
         </form>

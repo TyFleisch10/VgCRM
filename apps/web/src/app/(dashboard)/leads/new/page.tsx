@@ -150,10 +150,10 @@ export default function NewLeadPage() {
           </button>
           <button
             type="submit"
-            disabled={createLead.isLoading}
+            disabled={createLead.isPending}
             className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg disabled:opacity-50"
           >
-            {createLead.isLoading ? "Creating..." : "Create Lead"}
+            {createLead.isPending ? "Creating..." : "Create Lead"}
           </button>
         </div>
       </form>

@@ -179,10 +179,10 @@ export default function NewCustomerPage() {
           </button>
           <button
             type="submit"
-            disabled={createCustomer.isLoading}
+            disabled={createCustomer.isPending}
             className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg disabled:opacity-50"
           >
-            {createCustomer.isLoading ? "Creating..." : "Create Customer"}
+            {createCustomer.isPending ? "Creating..." : "Create Customer"}
           </button>
         </div>
       </form>

@@ -154,10 +154,10 @@ export default function NewInventoryItemPage() {
           </button>
           <button
             type="submit"
-            disabled={createItem.isLoading}
+            disabled={createItem.isPending}
             className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg disabled:opacity-50"
           >
-            {createItem.isLoading ? "Creating..." : "Create Item"}
+            {createItem.isPending ? "Creating..." : "Create Item"}
           </button>
         </div>
       </form>
